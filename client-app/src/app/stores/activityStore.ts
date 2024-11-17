@@ -1,4 +1,4 @@
-import { makeAutoObservable, runInAction, values } from "mobx";
+import { makeAutoObservable, runInAction } from "mobx";
 import { Activity } from "../models/activity";
 import agent from "../api/agent";
 import { v4 as uuid } from "uuid";
@@ -9,7 +9,7 @@ export default class ActivityStore {
   selectedActivity: Activity | undefined = undefined;
   editMode = false;
   loading = false;
-  loadingInitial = true;
+  loadingInitial = false  ;
 
   constructor() {
     makeAutoObservable(this);
@@ -22,7 +22,7 @@ export default class ActivityStore {
   }
 
   loadActivities = async () => {
-    //this.setLoadingInitial(true);
+    this.setLoadingInitial(true);
     try {
       const activities = await agent.Activities.list();
 
@@ -51,27 +51,59 @@ export default class ActivityStore {
     }
   };
 
+  loadActivity = async (id: string) => {
+    let activity = this.getActivity(id);
+    if (activity) {
+      this.selectedActivity = activity;
+      return activity;
+    } else {
+      this.setLoadingInitial(true);
+      try {
+        activity = await agent.Activities.details(id);
+        activity.date = activity.date.split("T")[0];
+
+        runInAction(() => {
+          this.selectedActivity = activity;
+        });
+
+        this.setLoadingInitial(false);
+        return activity;
+      } catch (error) {
+        console.log(error);
+        this.setLoadingInitial(false);
+      }
+    }
+  };
+
+  // private setActivity = (activity: Activity) => {
+
+  // }
+
+  private getActivity = (id: string) => {
+    return this.activities.find((a) => a.id === id);
+  };
+
   setLoadingInitial = (state: boolean) => {
     this.loadingInitial = state;
   };
 
-  selectActivity = (id: string) => {
-    this.selectedActivity = this.activities.find((a) => a.id === id);
-    //this.selectedActivity = this.activityRegistry.get(id);
-  };
+  // selectActivity = (id: string) => {
+  //   this.selectedActivity = this.activities.find((a) => a.id === id);
+  //   //this.selectedActivity = this.activityRegistry.get(id);
+  // };
 
-  cancelSelectedActivity = () => {
-    this.selectedActivity = undefined;
-  };
+  // cancelSelectedActivity = () => {
+  //   this.selectedActivity = undefined;
+  // };
 
-  openForm = (id?: string) => {
-    id ? this.selectActivity(id) : this.cancelSelectedActivity();
-    this.editMode = true;
-  };
+  // openForm = (id?: string) => {
+  //   id ? this.selectActivity(id) : this.cancelSelectedActivity();
+  //   this.editMode = true;
+  // };
 
-  closeForm = () => {
-    this.editMode = false;
-  };
+  // closeForm = () => {
+  //   this.editMode = false;
+  // };
 
   createActivity = async (activity: Activity) => {
     this.loading = true;
@@ -119,7 +151,7 @@ export default class ActivityStore {
       await agent.Activities.delete(id);
       runInAction(() => {
         this.activities = [...this.activities.filter((a) => a.id !== id)];
-        if (this.selectedActivity?.id === id) this.cancelSelectedActivity;
+        //if (this.selectedActivity?.id === id) this.cancelSelectedActivity;
         this.loading = false;
       });
     } catch (error) {
